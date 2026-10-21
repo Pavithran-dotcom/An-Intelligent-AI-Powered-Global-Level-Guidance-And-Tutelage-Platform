@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from config import settings
 from db import engine, init_db
+from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("globalguru")
@@ -31,9 +32,14 @@ app = FastAPI(title="GlobalGuru API", version="2.0.0",
               description="Learners ask · TF-IDF + cosine routes questions to relevant experts · threaded answers · NLLB-200 translation",
               lifespan=lifespan, docs_url="/docs", redoc_url="/redoc")
 
-app.add_middleware(CORSMiddleware,
-                   allow_origins=list({settings.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"}),
-                   allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r"https://an-intelligent-ai-powered-global-level-guidance-and-.*\.vercel\.app",
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
