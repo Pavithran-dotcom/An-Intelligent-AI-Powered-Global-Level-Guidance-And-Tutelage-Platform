@@ -82,3 +82,16 @@ class NLLBBackend:
             ) from e
 
         return translations
+_backend: TranslationBackend | None = None
+
+
+def get_backend() -> TranslationBackend:
+    global _backend
+    if _backend is None:
+        _backend = NLLBBackend()
+    return _backend
+
+
+def set_backend(b: TranslationBackend | None) -> None:
+    global _backend
+    _backend = b
