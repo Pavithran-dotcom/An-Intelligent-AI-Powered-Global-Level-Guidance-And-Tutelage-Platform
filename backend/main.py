@@ -34,8 +34,11 @@ app = FastAPI(title="GlobalGuru API", version="2.0.0",
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://an-intelligent-ai-powered-global-level-guidance-and-.*\.vercel\.app",
-    allow_origins=["http://localhost:5173"],
+    allow_origin_regex=r"https://an-intelligent-ai-powered-global-.*\.vercel\.app",
+    allow_origins=[
+        "https://an-intelligent-ai-powered-global-le-flax.vercel.app",
+        "http://localhost:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
