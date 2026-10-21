@@ -24,63 +24,61 @@ class TranslationBackend(Protocol):
 
 class NLLBBackend:
     def __init__(self, model_name: str | None = None) -> None:
-        self.name = model_name or settings.translation_model
+        self.name = model_name or "GlobalGuru Hugging Face Space"
+        self._client = None
         self._lock = threading.Lock()
-        self._tok = None
-        self._model = None
-        self._device = "cpu"
 
     def _load(self) -> None:
-        if self._model is not None:
+        if self._client is not None:
             return
+
         with self._lock:
-            if self._model is not None:
+            if self._client is not None:
                 return
+
+            import os
+
+            space_url = os.getenv("HF_SPACE_URL", "").strip()
+            token = os.getenv("HF_TOKEN", "").strip()
+
+            if not space_url or not token:
+                raise TranslationUnavailable(
+                    "Set HF_SPACE_URL and HF_TOKEN in the backend environment."
+                )
+
             try:
-                import torch
-                from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+                from gradio_client import Client
             except ImportError as e:
                 raise TranslationUnavailable(
-                    "Translation needs the ML dependencies: pip install -r requirements-ml.txt") from e
+                    "Install gradio_client in the backend requirements."
+                ) from e
+
             try:
-                log.info("Loading translation model %s …", self.name)
-                tok = AutoTokenizer.from_pretrained(self.name)
-                model = AutoModelForSeq2SeqLM.from_pretrained(self.name)
-            except Exception as e:  # network / disk / bad name
-                raise TranslationUnavailable(f"Could not load translation model '{self.name}': {e}") from e
-            dev = settings.translation_device
-            if dev == "auto":
-                dev = "cuda" if torch.cuda.is_available() else "cpu"
-            model.to(dev).eval()
-            self._tok, self._model, self._device = tok, model, dev
-            log.info("Translation model ready on %s", dev)
+                log.info("Connecting to translation Space: %s", space_url)
+                self._client = Client(space_url, token=token, verbose=False)
+            except Exception as e:
+                raise TranslationUnavailable(
+                    f"Could not connect to the Hugging Face translation Space: {e}"
+                ) from e
 
-    def translate_batch(self, texts: list[str], src_nllb: str, tgt_nllb: str) -> list[str]:
+    def translate_batch(
+        self, texts: list[str], src_nllb: str, tgt_nllb: str
+    ) -> list[str]:
         self._load()
-        import torch
-        tok, model = self._tok, self._model
-        tok.src_lang = src_nllb
-        out: list[str] = []
-        for i in range(0, len(texts), 8):
-            chunk = texts[i:i + 8]
-            enc = tok(chunk, return_tensors="pt", padding=True, truncation=True, max_length=256).to(self._device)
-            with torch.no_grad():
-                gen = model.generate(**enc, forced_bos_token_id=tok.convert_tokens_to_ids(tgt_nllb),
-                                     num_beams=4, max_new_tokens=300)
-            out.extend(tok.batch_decode(gen, skip_special_tokens=True))
-        return out
+        translations = []
 
+        try:
+            for text in texts:
+                result = self._client.predict(
+                    text,
+                    src_nllb,
+                    tgt_nllb,
+                    api_name="/translate_batch",
+                )
+                translations.append(result)
+        except Exception as e:
+            raise TranslationUnavailable(
+                f"The Hugging Face translation Space failed: {e}"
+            ) from e
 
-_backend: TranslationBackend | None = None
-
-
-def get_backend() -> TranslationBackend:
-    global _backend
-    if _backend is None:
-        _backend = NLLBBackend()
-    return _backend
-
-
-def set_backend(b: TranslationBackend | None) -> None:     # used by tests / alternative deployments
-    global _backend
-    _backend = b
+        return translations
