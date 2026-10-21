@@ -54,7 +54,7 @@ class Settings:
     database_url = normalize_database_url(os.getenv("DATABASE_URL", ""))
 
     # --- uploads
-    upload_dir = os.getenv("UPLOAD_DIR", "./uploads")
+    upload_dir = os.getenv("UPLOAD_DIR", "/tmp/uploads")
     max_upload_mb = int(os.getenv("MAX_UPLOAD_MB", "10"))
 
     # --- rate limiting (in-memory, per process)
